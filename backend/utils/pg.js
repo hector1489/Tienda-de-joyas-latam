@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
+const { format } = require('pg');
 
 const config = {
   user: process.env.PG_USER,
@@ -18,32 +19,7 @@ const genericSqlQuery = (query = '', values = []) =>
     .then(({ rows }) => rows)
     .catch(({ code, message }) => ({ code, message }));
 
-const addHateoasLinks = (item) => {
-  item.links = [
-    {
-      rel: 'self',
-      href: `/inventory/${item.id}`,
-    },
-    {
-      rel: 'update',
-      href: `/inventory/${item.id}`,
-      method: 'PUT',
-      title: 'Update Item',
-    },
-    {
-      rel: 'delete',
-      href: `/inventory/${item.id}`,
-      method: 'DELETE',
-      title: 'Delete Item',
-    },
-  ];
-  return item;
-};
-
-const readInventory = async () => {
-  const items = await genericSqlQuery('SELECT * FROM inventario;');
-  return items.map(addHateoasLinks);
-};
+const readInventory = async ({ limits = 10 }) => await genericSqlQuery('SELECT * FROM inventario;', [limits]);
 
 const createItem = async ({ nombre, categoria, metal, precio, stock }) => {
   const query =
@@ -66,9 +42,54 @@ const deleteItem = async (id) => {
   return addHateoasLinks(result[0]);
 };
 
+const getItems = async ({ limits = 10, order_by = 'id_ASC', page = 1 }) => {
+  const [campo, direccion] = order_by.split('_');
+  const offset = (page - 1) * limits;
+  const formattedQuery = format('SELECT * FROM inventario order by %s %s LIMIT %s OFFSET %s', campo, direccion, limits, offset);
+
+  try {
+    const { rows: inventario } = await pool.query(formattedQuery);
+    return inventario;
+  } catch (error) {
+    console.error('Error en getItems:', error);
+    throw error;
+  }
+};
+
+const getFilterItems = async ({ precio_max, precio_min, categoria, metal }) => {
+  let filtros = [];
+  const values = [];
+  const addFilter = (campo, comparador, valor) => {
+    values.push(valor);
+    const { length } = filtros;
+    filtros.push(`${campo} ${comparador} $${length + 1}`);
+  };
+  if (precio_max) addFilter('precio', '<=', precio_max);
+  if (precio_min) addFilter('precio', '>=', precio_min);
+  if (categoria) addFilter('categoria', '=', categoria);
+  if (metal) addFilter('metal', '=', metal);
+
+  let consulta = 'SELECT * FROM inventario';
+
+  if (filtros.length > 0) {
+    filtros = filtros.join(' AND ');
+    consulta += ` WHERE ${filtros}`;
+  }
+
+  try {
+    const { rows: inventario } = await pool.query(consulta, values);
+    return inventario;
+  } catch (error) {
+    console.error('Error en getFilterItems:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   readInventory,
   createItem,
   updateItem,
   deleteItem,
+  getItems,
+  getFilterItems,
 };

@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const { readInventory, createItem, updateItem, deleteItem } = require('../utils/pg');
+const {
+  readInventory,
+  createItem,
+  updateItem,
+  deleteItem
+} = require('../utils/pg');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -12,26 +17,31 @@ app.use(express.json());
 
 function createHateoasLinks(id) {
   return [
-    { rel: 'self', href: `/inventory/${id}` },
-    { rel: 'update', href: `/inventory/${id}`, method: 'PUT', title: 'Update Item' },
-    { rel: 'delete', href: `/inventory/${id}`, method: 'DELETE', title: 'Delete Item' }
+    { rel: 'self', href: `/inventario/${id}` },
+    { rel: 'update', href: `/inventario/${id}`, method: 'PUT', title: 'Update Item' },
+    { rel: 'delete', href: `/inventario/${id}`, method: 'DELETE', title: 'Delete Item' }
   ];
 }
 
-app.get('/inventory', (_, res, next) => {
+// Middleware para manejar errores de manera centralizada
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ code: 500, message: 'Error interno del servidor' });
+});
+
+app.get('/inventario', (_, res, next) => {
   readInventory()
     .then((items) => {
-      // aqui rey HATEOAS a cada elemento
       const itemsWithHateoas = items.map((item) => ({
         ...item,
         links: createHateoasLinks(item.id)
       }));
       res.status(200).json(itemsWithHateoas);
     })
-    .catch((error) => next(error));
+    .catch(next);
 });
 
-app.post('/inventory', (req, res, next) => {
+app.post('/inventario', (req, res, next) => {
   const { nombre, categoria, metal, precio, stock } = req.body;
   createItem({ nombre, categoria, metal, precio, stock })
     .then((result) => {
@@ -41,10 +51,10 @@ app.post('/inventory', (req, res, next) => {
       };
       res.status(result.code ? 500 : 201).json(item);
     })
-    .catch((error) => next(error));
+    .catch(next);
 });
 
-app.put('/inventory/:id', (req, res, next) => {
+app.put('/inventario/:id', (req, res, next) => {
   updateItem(req.params.id, req.body)
     .then((result) => {
       const item = {
@@ -53,15 +63,15 @@ app.put('/inventory/:id', (req, res, next) => {
       };
       res.status(result.code ? 500 : 200).json(item);
     })
-    .catch((error) => next(error));
+    .catch(next);
 });
 
-app.delete('/inventory/:id', (req, res, next) => {
+app.delete('/inventario/:id', (req, res, next) => {
   deleteItem(req.params.id)
     .then((result) => {
       res.status(result.code ? 500 : 204).end();
     })
-    .catch((error) => next(error));
+    .catch(next);
 });
 
 app.all('*', (_, res) => res.status(404).json({ code: 404, message: 'La ruta no existe' }));

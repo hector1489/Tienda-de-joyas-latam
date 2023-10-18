@@ -5,7 +5,7 @@ CREATE TABLE inventario (
   nombre        VARCHAR(50)     NOT NULL,
   categoria     VARCHAR(50)     NOT NULL,
   metal         VARCHAR(50)     NOT NULL,
-  precio        DECIMAL(10, 2)  NULL,
+  precio        DECIMAL(10, 2)  NOT NULL,
   stock         INT             NOT NULL,
   PRIMARY KEY (id)
 );
