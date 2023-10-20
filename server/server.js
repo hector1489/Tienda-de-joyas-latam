@@ -1,9 +1,10 @@
 const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
 const { getJewels, getFilteredJewels } = require('../utils/pg');
 
-// Handler para obtener todas las joyas con paginación y ordenamiento
-router.get('/joyas', async (req, res, next) => {
+const router = new Router();
+
+router.get('/', async (req, res, next) => {
   try {
     const { limits = 10, order_by = 'id_ASC', page = 1 } = req.query;
     const joyas = await getJewels({ limits, order_by, page });
@@ -13,8 +14,7 @@ router.get('/joyas', async (req, res, next) => {
   }
 });
 
-// Handler para filtrar joyas
-router.get('/joyas/filtros', async (req, res, next) => {
+router.get('/filtros', async (req, res, next) => {
   try {
     const { precio_max, precio_min, categoria, metal } = req.query;
     const joyas = await getFilteredJewels({ precio_max, precio_min, categoria, metal });

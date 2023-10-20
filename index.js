@@ -1,5 +1,5 @@
 const express = require('express');
-const server = require('./server/server');
+const router = require('./server/server');
 const { logger } = require('./middleware/middleware');
 
 const PORT = process.env.PORT || 3000;
@@ -7,7 +7,7 @@ const app = express();
 
 app.use(logger)
 
-app.use('/joyas', server);
+app.use('/joyas', router);
 
 app.use((err, _req, res, _next) => {
   console.error('Error In App', err);
