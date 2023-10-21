@@ -1,5 +1,6 @@
-const { Pool } = require('pg');
-const format = require('pg-format');
+require('dotenv').config()
+const { Pool } = require('pg')
+const format = require('pg-format')
 
 const config = {
   user: process.env.PG_USER,
@@ -7,64 +8,53 @@ const config = {
   host: process.env.PG_HOST,
   port: process.env.PG_PORT,
   database: process.env.PG_DATABASE,
-  allowExitOnIdle: true
+  allowExistOnIdle: true
 }
 
 const pool = new Pool(config)
 
-const createHATEOASLinks = (inventario) => {
-  const results = inventario.map((item) => ({
-    name: item.nombre,
-    href: `/joyas/joya/${item.id}`,
-  })).slice(0, 6);
-  const total = inventario.length;
+const genericSqlQuery = (query, values) => pool
+  .query(query, values)
+  .then(({ rows }) => rows)
+  .catch(({ code, message }) => ({ code, message }))
+
+const jewelryId = async (id) => await genericSqlQuery('SELECT * FROM inventario WHERE id = $1;', [id])
+
+const HATEOAS = (joyas, limits, order, page) => {
+  const results = joyas.map((j) => ({
+    name: j.nombre,
+    href: `/joyas/joya/${j.id}`
+  }))
   return {
-    total,
-    results,
-  };
-};
-
-const getJewels = async ({ limits = 10, order_by = 'id_ASC', page = 1 }) => {
-  try {
-    const [field, direction] = order_by.split('_');
-    const offset = (page - 1) * limits;
-    const formattedQuery = format('SELECT * FROM inventario ORDER BY %I %I LIMIT %L OFFSET %L', field, direction, limits, offset);
-    const { rows: inventario } = await pool.query(formattedQuery);
-    return inventario;
-  } catch (error) {
-    console.error(error);
-    throw error;
+    total: joyas.length,
+    next: page < 2 ? `/joyas?limit=${limits}&order=${order}&page=${+page + 1}` : null,
+    previous: page > 1 ? `/joyas?limit=${limits}&order=${order}&page=${page - 1}` : null,
+    results
   }
-};
+}
 
-const getFilteredJewels = async ({ precio_max, precio_min, categoria, metal }) => {
-  const filters = [];
-  const values = [];
+const allJewels = async ({ limits = 6, page = 1, order_by = 'stock_ASC' }) => {
+  const [campo, direccion] = order_by.split('_');
+  const offSet = limits * (page - 1);
+  const formatted = format('SELECT * FROM inventario ORDER BY %s %s LIMIT %s OFFSET %s', campo, direccion, limits, offSet);
+  const joyas = await genericSqlQuery(formatted);
+  return HATEOAS(joyas, limits, order_by, page);
+}
 
-  const addFilter = (field, comparator, value) => {
-    values.push(value);
-    const filterIndex = values.length;
-    filters.push(`${field} ${comparator} $${filterIndex}`);
-  };
-
-  if (precio_max) addFilter('precio', '<=', precio_max);
-  if (precio_min) addFilter('precio', '>=', precio_min);
-  if (categoria) addFilter('categoria', '=', categoria);
-  if (metal) addFilter('metal', '=', metal);
-
-  let query = 'SELECT * FROM inventario';
-
-  if (filters.length > 0) {
-    const filterClause = filters.join(' AND ');
-    query += ` WHERE ${filterClause}`;
-  }
-
-  const { rows: inventario } = await pool.query(query, values);
-  return inventario;
-};
+const JewelryByFilters = async ({ preciomax, preciomin, categoria, metal }) => {
+  const filters = []
+  const values = []
+  let query = 'SELECT * FROM inventario '
+  if (preciomax) filters.push(`precio <= $${values.push(preciomax)}`)
+  if (preciomin) filters.push(`precio >= $${values.push(preciomin)}`)
+  if (categoria) filters.push(`categoria = $${values.push(categoria)}`)
+  if (metal) filters.push(`metal = $${values.push(metal)}`)
+  if (filters.length > 0) query += `WHERE ${filters.join(' AND ')};`
+  return await genericSqlQuery(query, values)
+}
 
 module.exports = {
-  getJewels,
-  getFilteredJewels,
-  createHATEOASLinks,
-};
+  jewelryId,
+  allJewels,
+  JewelryByFilters
+}

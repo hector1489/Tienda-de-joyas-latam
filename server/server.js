@@ -1,27 +1,41 @@
-const express = require('express');
-const { Router } = express;
-const { getJewels, getFilteredJewels } = require('../utils/pg');
+require('dotenv')
+const express = require('express')
+const cors = require('cors')
+const { logger } = require('../middleware/middleware')
 
-const router = new Router();
+const {
+  jewelryId,
+  allJewels,
+  JewelryByFilters
+ } = require('../utils/pg')
 
-router.get('/', async (req, res, next) => {
-  try {
-    const { limits = 10, order_by = 'id_ASC', page = 1 } = req.query;
-    const joyas = await getJewels({ limits, order_by, page });
-    res.json(joyas);
-  } catch (err) {
-    next(err);
-  }
-});
+const PORT = process.env.PORT ?? 3000
+const app = express()
 
-router.get('/filtros', async (req, res, next) => {
-  try {
-    const { precio_max, precio_min, categoria, metal } = req.query;
-    const joyas = await getFilteredJewels({ precio_max, precio_min, categoria, metal });
-    res.json(joyas);
-  } catch (err) {
-    next(err);
-  }
-});
+app.use(cors())
+app.use(express.json())
+app.use(logger)
 
-module.exports = router;
+app.get('/joyas', (req, res) => {
+  const { limits, page, order_by } = req.query;
+  const order = order_by ? order_by.toLowerCase().replace('_', '_') : 'nombre_asc';
+  allJewels({ limits, page, order_by: order })
+    .then((result) => res.status(result?.code ? 500 : 200).json(result))
+    .catch((error) => res.status(500).json(error))
+})
+
+app.get('/joyas/filtros', (req, res) => {
+  JewelryByFilters(req.query)
+    .then((result) => res.status(result?.code ? 500 : 200).json(result))
+    .catch((error) => res.status(500).json(error))
+})
+
+app.get('/joyas/joya/:id', (req, res) => {
+  jewelryId(req.params.id)
+    .then((result) => res.status(result?.code ? 500 : 200).json(result))
+    .catch((error) => res.status(500).json(error))
+})
+
+app.all('*', (_, res) => res.status(404).json({ code: 404, message: 'La ruta no se encuentra en este sistema solar' }))
+
+app.listen(PORT, () => console.log(`http://localhost:${PORT}`))
