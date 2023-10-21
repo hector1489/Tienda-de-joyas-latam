@@ -5,7 +5,7 @@ const { logger } = require('./middleware/middleware');
 const PORT = process.env.PORT || 3000;
 const app = express();
 
-app.use(logger)
+app.use(logger);
 
 app.use('/joyas', router);
 
@@ -17,9 +17,8 @@ app.use((err, _req, res, _next) => {
   res.status(500).json(errorResponse);
 });
 
-
 app.get('*', (_req, res) => {
-  res.status(404).send("Lo siento, esta ruta no existe!")
-})
+  res.status(404).send("Lo siento, esta ruta no existe!");
+});
 
 app.listen(PORT, () => console.log(`Servidor en ejecución en http://localhost:${PORT}`));

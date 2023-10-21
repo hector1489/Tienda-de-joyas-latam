@@ -1,5 +1,5 @@
 const express = require('express');
-const { Router } = require('express');
+const { Router } = express;
 const { getJewels, getFilteredJewels } = require('../utils/pg');
 
 const router = new Router();

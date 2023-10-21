@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const { format } = require('sql-template-strings');
+const format = require('pg-format');
 
 const config = {
   user: process.env.PG_USER,
@@ -28,10 +28,7 @@ const getJewels = async ({ limits = 10, order_by = 'id_ASC', page = 1 }) => {
   try {
     const [field, direction] = order_by.split('_');
     const offset = (page - 1) * limits;
-    const formattedQuery = (
-      'SELECT * FROM inventario ORDER BY %s %s LIMIT %s OFFSET %s;',
-      field, direction, limits, offset
-    );
+    const formattedQuery = format('SELECT * FROM inventario ORDER BY %I %I LIMIT %L OFFSET %L', field, direction, limits, offset);
     const { rows: inventario } = await pool.query(formattedQuery);
     return inventario;
   } catch (error) {
@@ -59,7 +56,7 @@ const getFilteredJewels = async ({ precio_max, precio_min, categoria, metal }) =
 
   if (filters.length > 0) {
     const filterClause = filters.join(' AND ');
-    query += ` WHERE ${filterClause};`;
+    query += ` WHERE ${filterClause}`;
   }
 
   const { rows: inventario } = await pool.query(query, values);
